@@ -54,22 +54,22 @@ class Storage:
         Persiste os registros no bucket S3 em um arquivo JSON.
         :param records: lista de TradeRecord
         """
-        # Converte TradeRecord para DataFrame e grava Parquet em memória
         df = pd.DataFrame([record.__dict__ for record in records])
-        buf = io.BytesIO()
-        df.to_parquet(buf, index=False)
-        buf.seek(0)
-        # Gera nome de arquivo com timestamp UTC
+        df['record_date'] = pd.to_datetime(df['record_date']).dt.strftime('%Y-%m-%d')
         timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
-        key = f"{self.prefix}/trade_records_{timestamp}.parquet"
-        try:
-            self.s3.put_object(
-                Bucket=self.bucket,
-                Key=key,
-                Body=buf.getvalue(),
-                ContentType='application/octet-stream'
-            )
-            logger.info("Successfully uploaded %d records as Parquet to s3://%s/%s", len(records), self.bucket, key)
-        except (BotoCoreError, ClientError) as e:
-            logger.error("Failed to upload Parquet records to S3: %s", e)
-            raise
+        for record_date, group in df.groupby('record_date'):
+            buf = io.BytesIO()
+            group.to_parquet(buf, index=False)
+            buf.seek(0)
+            key = f"{self.prefix}/date={record_date}/trade_records_{timestamp}.parquet"
+            try:
+                self.s3.put_object(
+                    Bucket=self.bucket,
+                    Key=key,
+                    Body=buf.getvalue(),
+                    ContentType='application/octet-stream'
+                )
+                logger.info("Successfully uploaded %d records for date %s as Parquet to s3://%s/%s", len(group), record_date, self.bucket, key)
+            except (BotoCoreError, ClientError) as e:
+                logger.error("Failed to upload Parquet records for date %s to S3: %s", record_date, e)
+                raise
