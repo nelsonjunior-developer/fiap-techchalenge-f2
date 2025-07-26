@@ -7,7 +7,7 @@
 
 O módulo **b3_scraper** automatiza o download diário da *Carteira do Dia* do índice **IBovespa** no site da B3 e a transforma em dados estruturados:
 
-1. **Coleta (layer _raw_).**  
+1. **Coleta**  
    `scraper.py` usa `http_client.py` (requests + retry) para buscar a página HTML; o artefato bruto pode ser salvo localmente ou diretamente no Amazon S3 (via `storage.py`) para auditoria/reprocessamento.
 
 2. **Parsing.**  
