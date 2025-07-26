@@ -3,6 +3,7 @@ b3_scraper.infrastructure.parser
 Parser que converte HTML bruto do IBOV em objetos TradeRecord.
 """
 import logging
+import re
 from typing import List
 from decimal import Decimal
 from datetime import datetime
@@ -28,10 +29,10 @@ class Parser:
         header_tag = soup.find("h2")
         if header_tag:
             full_text = header_tag.get_text(strip=True)
-            date_str = full_text.split("-")[-1].strip()
-            try:
-                record_date = datetime.strptime(date_str, "%d/%m/%y").date()
-            except ValueError:
+            m = re.search(r"(\d{2}/\d{2}/\d{2})", full_text)
+            if m:
+                record_date = datetime.strptime(m.group(1), "%d/%m/%y").date()
+            else:
                 logger.warning("Formato de data inesperado no HTML: %s", full_text)
                 record_date = None
         else:

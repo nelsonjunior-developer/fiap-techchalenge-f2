@@ -1,6 +1,6 @@
 """
 b3_scraper.infrastructure.storage
-Persistência de registros, enviando JSON ao S3.
+Persistência de registros, enviando arquivos Parquet ao S3.
 """
 import logging
 import json
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class Storage:
     """
-    Faz upload de listas de TradeRecord para um bucket S3 como arquivo JSON.
+    Faz upload de listas de TradeRecord para um bucket S3 como arquivo Parquet.
     """
     def __init__(self, bucket: str, region: str, prefix: str):
         """
@@ -51,17 +51,19 @@ class Storage:
 
     def save_records(self, records: List[TradeRecord]) -> None:
         """
-        Persiste os registros no bucket S3 em um arquivo JSON.
+        Persiste os registros no bucket S3 em arquivos Parquet particionados por data.
         :param records: lista de TradeRecord
         """
         df = pd.DataFrame([record.__dict__ for record in records])
         df['record_date'] = pd.to_datetime(df['record_date']).dt.strftime('%Y-%m-%d')
         timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        # Particionamento alterado de date=YYYY-MM-DD para ano=YYYY/mes=MM/dia=DD para compatibilizar com Glue/Athena.
         for record_date, group in df.groupby('record_date'):
             buf = io.BytesIO()
             group.to_parquet(buf, index=False)
             buf.seek(0)
-            key = f"{self.prefix}/date={record_date}/trade_records_{timestamp}.parquet"
+            key = (f"{self.prefix}/ano={record_date[0:4]}/mes={record_date[5:7]}/dia={record_date[8:10]}/"
+                   f"trade_records_{timestamp}.parquet")
             try:
                 self.s3.put_object(
                     Bucket=self.bucket,
